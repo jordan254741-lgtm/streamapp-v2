@@ -29,3 +29,4 @@ postcss.config.js
 *.sln
 *.sw?
 .vercel
+.env.vercel
