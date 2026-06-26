@@ -1,5 +1,5 @@
-/** @type {import("tailwindcss").Config} */
-export default {
+/** @type {import('tailwindcss').Config} */
+module.exports = {
   content: [
     "./index.html",
     "./src/**/*.{js,ts,jsx,tsx}",
@@ -22,11 +22,6 @@ export default {
         "accent-foreground": "#ffffff",
         destructive: "#ef4444",
         "destructive-foreground": "#ffffff",
-      },
-      borderRadius: {
-        lg: "0.5rem",
-        md: "0.375rem",
-        sm: "0.25rem",
       },
     },
   },
