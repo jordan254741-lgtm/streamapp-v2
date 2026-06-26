@@ -9,7 +9,11 @@ import { PlusIcon, XIcon } from 'lucide-react';
 import type { Request } from '@/types';
 
 const Requests = () => {
-  usePageMeta({ title: 'Requests', description: 'Request movies you want to see added to StreamApp.' });
+  usePageMeta({
+    title: 'Requests',
+    description: 'Request movies you want to see added to StreamApp. Vote on existing requests.',
+    url: 'https://streamapp.example.com/requests',
+  });
   const { data: requests, isLoading: isLoadingRequests } = useRequests();
   const submitRequest = useSubmitRequest();
   const voteRequest = useVoteRequest();

@@ -1,8 +1,14 @@
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { HomeIcon } from 'lucide-react';
+import { usePageMeta } from '@/hooks/usePageMeta';
 
 const NotFound = () => {
+  usePageMeta({
+    title: 'Page Not Found',
+    description: 'The page you are looking for does not exist.',
+    url: 'https://streamapp.example.com/404',
+  });
   return (
     <div className="min-h-screen bg-gray-950 text-white flex items-center justify-center p-4">
       <div className="text-center max-w-md">

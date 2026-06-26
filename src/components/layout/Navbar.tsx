@@ -29,10 +29,8 @@ const Navbar = () => {
                   activePath === link.path
                     ? 'text-white font-medium'
                     : 'text-gray-300 hover:text-white'
-                }`}
-                onClick={() => setActivePath(link.path)}
-                disabled={isLoading}
-                aria-disabled={isLoading}
+                } ${isLoading ? 'pointer-events-none opacity-50' : ''}`}
+                onClick={() => !isLoading && setActivePath(link.path)}
               >
                 {link.label}
               </Link>

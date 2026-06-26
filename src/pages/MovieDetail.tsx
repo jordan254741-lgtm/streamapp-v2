@@ -16,7 +16,13 @@ const MovieDetail = () => {
   const navigate = useNavigate();
   const movieId = id ? parseInt(id) : 0;
   const { movie, videos, cast, similarMovies, isLoading, error } = useMovieDetail({ id: movieId });
-  usePageMeta({ title: movie?.title ?? 'Movie', description: movie?.overview });
+  usePageMeta({
+    title: movie?.title ?? 'Movie',
+    description: movie?.overview,
+    image: movie?.poster_path ? `https://image.tmdb.org/t/p/w500${movie.poster_path}` : undefined,
+    url: movie?.id ? `https://streamapp.example.com/movie/${movie.id}` : undefined,
+    type: 'article',
+  });
   const { videoSources, hasFullMovie } = useVideoSource({
     movieId,
     movieTitle: movie?.title ?? '',

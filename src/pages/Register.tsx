@@ -8,7 +8,11 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 const Register: React.FC = () => {
-  usePageMeta({ title: 'Create Account', description: 'Create your StreamApp account.' });
+  usePageMeta({
+    title: 'Create Account',
+    description: 'Create your StreamApp account to start watching movies and TV shows.',
+    url: 'https://streamapp.example.com/register',
+  });
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);

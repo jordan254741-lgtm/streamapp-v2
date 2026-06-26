@@ -7,7 +7,11 @@ import { Trash2Icon, PlayIcon, DownloadIcon } from 'lucide-react';
 import type { Download } from '@/types';
 
 const Downloads = () => {
-  usePageMeta({ title: 'Downloads', description: 'View and manage your downloaded movies.' });
+  usePageMeta({
+    title: 'Downloads',
+    description: 'View and manage your downloaded movies. Watch offline anytime.',
+    url: 'https://streamapp.example.com/downloads',
+  });
   const navigate = useNavigate();
   const { data: downloads, isLoading } = useDownloads();
   const deleteDownload = useDeleteDownload();

@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMovies } from '@/hooks/useMovies';
 import { useDebounce } from '@/hooks/useDebounce';
-import { useMetaTags } from '@/hooks/useMeta';
+import { usePageMeta } from '@/hooks/usePageMeta';
 import MovieCard from '@/components/movies/MovieCard';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
