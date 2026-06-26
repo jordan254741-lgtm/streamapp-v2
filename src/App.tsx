@@ -1,4 +1,4 @@
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { createBrowserRouter, RouterProvider, Navigate } from 'react-router-dom';
 import { Suspense, lazy } from 'react';
 import ErrorBoundary from '@/components/ui/ErrorBoundary';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -24,96 +24,97 @@ const RouteSkeleton = ({ children }: { children: React.ReactNode }) => (
   <Suspense fallback={<PageSkeleton />}>{children}</Suspense>
 );
 
+const router = createBrowserRouter([
+  {
+    path: '/login',
+    element: (
+      <RouteSkeleton>
+        <ErrorBoundary>
+          <Login />
+        </ErrorBoundary>
+      </RouteSkeleton>
+    ),
+  },
+  {
+    path: '/register',
+    element: (
+      <RouteSkeleton>
+        <ErrorBoundary>
+          <Register />
+        </ErrorBoundary>
+      </RouteSkeleton>
+    ),
+  },
+  {
+    path: '/browse',
+    element: (
+      <RouteSkeleton>
+        <ErrorBoundary>
+          <ProtectedRoute>
+            <Navbar />
+            <Browse />
+          </ProtectedRoute>
+        </ErrorBoundary>
+      </RouteSkeleton>
+    ),
+  },
+  {
+    path: '/movie/:id',
+    element: (
+      <RouteSkeleton>
+        <ErrorBoundary>
+          <ProtectedRoute>
+            <Navbar />
+            <MovieDetail />
+          </ProtectedRoute>
+        </ErrorBoundary>
+      </RouteSkeleton>
+    ),
+  },
+  {
+    path: '/requests',
+    element: (
+      <RouteSkeleton>
+        <ErrorBoundary>
+          <ProtectedRoute>
+            <Navbar />
+            <Requests />
+          </ProtectedRoute>
+        </ErrorBoundary>
+      </RouteSkeleton>
+    ),
+  },
+  {
+    path: '/downloads',
+    element: (
+      <RouteSkeleton>
+        <ErrorBoundary>
+          <ProtectedRoute>
+            <Navbar />
+            <Downloads />
+          </ProtectedRoute>
+        </ErrorBoundary>
+      </RouteSkeleton>
+    ),
+  },
+  {
+    path: '/404',
+    element: (
+      <RouteSkeleton>
+        <ErrorBoundary>
+          <NotFound />
+        </ErrorBoundary>
+      </RouteSkeleton>
+    ),
+  },
+  {
+    path: '*',
+    element: <Navigate to="/404" replace />,
+  },
+]);
+
 function App() {
-  return (
-    <Router>
-      <Routes>
-        <Route
-          path="/login"
-          element={
-            <RouteSkeleton>
-              <ErrorBoundary>
-                <Login />
-              </ErrorBoundary>
-            </RouteSkeleton>
-          }
-        />
-        <Route
-          path="/register"
-          element={
-            <RouteSkeleton>
-              <ErrorBoundary>
-                <Register />
-              </ErrorBoundary>
-            </RouteSkeleton>
-          }
-        />
-        <Route
-          path="/browse"
-          element={
-            <RouteSkeleton>
-              <ErrorBoundary>
-                <ProtectedRoute>
-                  <Navbar />
-                  <Browse />
-                </ProtectedRoute>
-              </ErrorBoundary>
-            </RouteSkeleton>
-          }
-        />
-        <Route
-          path="/movie/:id"
-          element={
-            <RouteSkeleton>
-              <ErrorBoundary>
-                <ProtectedRoute>
-                  <Navbar />
-                  <MovieDetail />
-                </ProtectedRoute>
-              </ErrorBoundary>
-            </RouteSkeleton>
-          }
-        />
-        <Route
-          path="/requests"
-          element={
-            <RouteSkeleton>
-              <ErrorBoundary>
-                <ProtectedRoute>
-                  <Navbar />
-                  <Requests />
-                </ProtectedRoute>
-              </ErrorBoundary>
-            </RouteSkeleton>
-          }
-        />
-        <Route
-          path="/downloads"
-          element={
-            <RouteSkeleton>
-              <ErrorBoundary>
-                <ProtectedRoute>
-                  <Navbar />
-                  <Downloads />
-                </ProtectedRoute>
-              </ErrorBoundary>
-            </RouteSkeleton>
-          }
-        />
-        <Route
-          path="/404"
-          element={
-            <RouteSkeleton>
-              <ErrorBoundary>
-                <NotFound />
-              </ErrorBoundary>
-            </RouteSkeleton>
-          }
-        />
-        <Route path="*" element={<Navigate to="/404" replace />} />
-      </Routes>
-    </Router>
-  );
+  return <RouterProvider router={router} />;
 }
 
 export default App;
