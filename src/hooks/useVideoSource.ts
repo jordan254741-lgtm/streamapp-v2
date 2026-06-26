@@ -1,8 +1,9 @@
 import { useQuery } from '@tanstack/react-query';
 import { searchFullMovie, searchAllDailymotion, searchTrailers } from '@/lib/dailymotion';
 import { searchInternetArchive } from '@/lib/internetarchive';
+import { getMovieVideos } from '@/lib/tmdb';
 
-export type VideoSourceType = 'dailymotion' | 'archive';
+export type VideoSourceType = 'dailymotion' | 'archive' | 'youtube';
 
 export interface VideoSource {
   id: string;
@@ -81,6 +82,21 @@ export const useVideoSource = ({ movieId, movieTitle, year }: UseVideoSourceOpti
     staleTime: 1000 * 60 * 60,
   });
 
+  const hasDmContent = !!dmFullMovieQuery.data || (dmAllQuery.data?.length ?? 0) > 0;
+  const hasArchiveContent = (archiveQuery.data?.length ?? 0) > 0;
+
+  const youtubeQuery = useQuery({
+    queryKey: ['youtube', 'videos', movieId],
+    queryFn: async () => {
+      const response = await getMovieVideos(movieId);
+      return response.results
+        .filter((v: { site: string }) => v.site === 'YouTube')
+        .slice(0, 3);
+    },
+    enabled: movieId > 0 && hasTitle && !hasDmContent && !hasArchiveContent,
+    staleTime: 1000 * 60 * 60,
+  });
+
   const playableSources: VideoSource[] = [];
 
   if (dmFullMovieQuery.data) {
@@ -131,6 +147,21 @@ export const useVideoSource = ({ movieId, movieTitle, year }: UseVideoSourceOpti
     }
   }
 
+  if (youtubeQuery.data?.length && playableSources.length === 0) {
+    for (const video of youtubeQuery.data) {
+      playableSources.push({
+        id: `yt-${video.id}`,
+        title: video.name,
+        source: 'youtube',
+        embedUrl: `https://www.youtube.com/embed/${video.key}?autoplay=1&rel=0&modestbranding=1`,
+        thumbnail: `https://img.youtube.com/vi/${video.key}/mqdefault.jpg`,
+        duration: 0,
+        isFullMovie: false,
+        views: 0,
+      });
+    }
+  }
+
   const trailerSources: TrailerSource[] = [];
 
   if (dmTrailersQuery.data?.length) {
@@ -154,8 +185,14 @@ export const useVideoSource = ({ movieId, movieTitle, year }: UseVideoSourceOpti
 
   const error = dmFullMovieQuery.error || dmAllQuery.error || dmTrailersQuery.error || archiveQuery.error;
 
+  const allQueriesDone = !dmFullMovieQuery.isLoading &&
+    !dmAllQuery.isLoading &&
+    !dmTrailersQuery.isLoading &&
+    !archiveQuery.isLoading &&
+    !youtubeQuery.isLoading;
+
   let status: VideoStatus = 'loading';
-  if (!isLoading) {
+  if (allQueriesDone) {
     if (playableSources.length > 0) {
       status = 'available';
     } else if (error) {
@@ -166,7 +203,7 @@ export const useVideoSource = ({ movieId, movieTitle, year }: UseVideoSourceOpti
   }
 
   let searchStage: SearchStage = 'dailymotion';
-  if (!isLoading) {
+  if (allQueriesDone) {
     searchStage = 'complete';
   } else if (!dmFullMovieQuery.isLoading && !dmAllQuery.isLoading && archiveQuery.isLoading) {
     searchStage = 'archive';

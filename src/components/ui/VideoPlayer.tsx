@@ -62,7 +62,7 @@ const VideoPlayer = ({ sources, title, onClose }: PlayerProps) => {
     }
   }, [sources.length]);
 
-  const sourceLabel = currentSource?.source === 'dailymotion' ? 'Dailymotion' : 'Archive';
+  const sourceLabel = currentSource?.source === 'dailymotion' ? 'Dailymotion' : currentSource?.source === 'youtube' ? 'YouTube' : 'Archive';
   const durationLabel = currentSource?.duration
     ? `${Math.floor(currentSource.duration / 60)}min`
     : '';
@@ -72,9 +72,13 @@ const VideoPlayer = ({ sources, title, onClose }: PlayerProps) => {
       <div className="relative bg-black rounded-2xl overflow-hidden border border-white/[0.06]">
         <IframeWithTimeout
           key={currentSource?.embedUrl}
-          src={currentSource?.source === 'dailymotion'
-            ? `${currentSource.embedUrl}?autoplay=1&queue-enable=0`
-            : `${currentSource?.embedUrl}?autoplay=1`}
+          src={
+            currentSource?.source === 'dailymotion'
+              ? `${currentSource.embedUrl}?autoplay=1&queue-enable=0`
+              : currentSource?.source === 'youtube'
+                ? currentSource.embedUrl
+                : `${currentSource?.embedUrl}?autoplay=1`
+          }
           title={currentSource?.title ?? title}
         />
 
@@ -120,7 +124,7 @@ const VideoPlayer = ({ sources, title, onClose }: PlayerProps) => {
                     : 'bg-white/5 text-neutral-400 border-white/[0.08] hover:text-white hover:border-white/20'
                 }`}
               >
-                {source.source === 'dailymotion' ? 'DM' : 'IA'}
+                {source.source === 'dailymotion' ? 'DM' : source.source === 'youtube' ? 'YT' : 'IA'}
                 {' · '}
                 {source.isFullMovie ? 'Full' : source.duration > 0 ? `${Math.floor(source.duration / 60)}m` : 'Clip'}
                 {source.views > 0 && <span className="text-neutral-600 ml-1">+{source.views}</span>}
