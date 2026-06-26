@@ -9,14 +9,15 @@ const Browse = lazy(() => import('./pages/Browse'));
 const MovieDetail = lazy(() => import('./pages/MovieDetail'));
 const Requests = lazy(() => import('./pages/Requests'));
 const Downloads = lazy(() => import('./pages/Downloads'));
+const Watch = lazy(() => import('./pages/Watch'));
 const NotFound = lazy(() => import('./pages/NotFound'));
 
 const ProtectedRoute = lazy(() => import('./components/ProtectedRoute'));
 const Navbar = lazy(() => import('./components/layout/Navbar'));
 
 const PageSkeleton = () => (
-  <div className="min-h-screen bg-gray-950 text-white flex items-center justify-center">
-    <Skeleton className="h-8 w-48" />
+  <div className="min-h-screen bg-black text-white flex items-center justify-center">
+    <Skeleton className="h-8 w-48 rounded-xl" />
   </div>
 );
 
@@ -83,6 +84,19 @@ const router = createBrowserRouter([
           <ProtectedRoute>
             <Navbar />
             <Requests />
+          </ProtectedRoute>
+        </ErrorBoundary>
+      </RouteSkeleton>
+    ),
+  },
+  {
+    path: '/watch/:id',
+    element: (
+      <RouteSkeleton>
+        <ErrorBoundary>
+          <ProtectedRoute>
+            <Navbar />
+            <Watch />
           </ProtectedRoute>
         </ErrorBoundary>
       </RouteSkeleton>

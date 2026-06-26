@@ -11,8 +11,7 @@ import type { Request } from '@/types';
 const Requests = () => {
   usePageMeta({
     title: 'Requests',
-    description: 'Request movies you want to see added to StreamApp. Vote on existing requests.',
-    url: 'https://streamapp.example.com/requests',
+    description: 'Request movies you want to see added to StreamApp.',
   });
   const { data: requests, isLoading: isLoadingRequests } = useRequests();
   const submitRequest = useSubmitRequest();
@@ -52,15 +51,18 @@ const Requests = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-950 text-white">
-      <div className="max-w-4xl mx-auto p-4 md:p-8">
+    <div className="min-h-screen bg-black text-white">
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-10">
         <div className="flex items-center justify-between mb-8">
-          <h1 className="text-2xl md:text-3xl font-bold">Requests</h1>
+          <div>
+            <h1 className="text-3xl md:text-4xl font-bold tracking-tight">Requests</h1>
+            <p className="text-neutral-500 text-sm mt-1">Vote on what to add next</p>
+          </div>
           <Button
             onClick={() => setShowForm((prev) => !prev)}
-            variant="outline"
-            className="border-gray-700 text-white hover:bg-gray-800 gap-1.5"
+            variant={showForm ? 'ghost' : 'outline'}
             size="sm"
+            className="gap-1.5"
           >
             {showForm ? <XIcon className="h-4 w-4" /> : <PlusIcon className="h-4 w-4" />}
             {showForm ? 'Cancel' : 'New Request'}
@@ -68,22 +70,21 @@ const Requests = () => {
         </div>
 
         {showForm && (
-          <form onSubmit={handleSubmit} className="bg-gray-900 border border-gray-800 rounded-lg p-4 md:p-6 mb-8 space-y-4">
+          <form onSubmit={handleSubmit} className="bg-white/[0.03] border border-white/[0.06] rounded-2xl p-5 md:p-6 mb-8 space-y-4">
             <div className="space-y-1.5">
-              <Label htmlFor="title" className="text-gray-300">Title</Label>
+              <Label htmlFor="title">Title</Label>
               <Input
                 id="title"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 placeholder="Movie title"
-                className="bg-gray-800 border-gray-700 text-white placeholder:text-gray-500"
                 required
               />
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1.5">
-                <Label htmlFor="year" className="text-gray-300">Release Year</Label>
+                <Label htmlFor="year">Release Year</Label>
                 <Input
                   id="year"
                   type="number"
@@ -92,37 +93,35 @@ const Requests = () => {
                   placeholder="2024"
                   min={1900}
                   max={2100}
-                  className="bg-gray-800 border-gray-700 text-white placeholder:text-gray-500"
                 />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="language" className="text-gray-300">Language</Label>
+                <Label htmlFor="language">Language</Label>
                 <Input
                   id="language"
                   value={language}
                   onChange={(e) => setLanguage(e.target.value)}
                   placeholder="en"
-                  className="bg-gray-800 border-gray-700 text-white placeholder:text-gray-500"
                 />
               </div>
             </div>
 
             <div className="space-y-1.5">
-              <Label htmlFor="notes" className="text-gray-300">Notes</Label>
+              <Label htmlFor="notes">Notes</Label>
               <textarea
                 id="notes"
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
-                placeholder="Additional details..."
+                placeholder="Any additional details..."
                 rows={3}
-                className="flex w-full min-w-0 rounded-md border border-input bg-transparent px-3 py-2 text-base shadow-xs transition-[color,box-shadow] outline-none selection:bg-primary selection:text-primary-foreground placeholder:text-muted-foreground disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50 md:text-sm bg-gray-800 border-gray-700 text-white placeholder:text-gray-500 focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
+                className="flex w-full min-w-0 rounded-lg border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder:text-neutral-600 shadow-[inset_0_1px_2px_rgba(0,0,0,0.3)] transition-all duration-200 outline-none focus:border-white/20 focus:bg-white/[0.07]"
               />
             </div>
 
             <Button
               type="submit"
               disabled={submitRequest.isPending || !title.trim()}
-              className="bg-white text-black hover:bg-gray-200 font-semibold"
+              className="font-semibold"
             >
               {submitRequest.isPending ? 'Submitting...' : 'Submit Request'}
             </Button>
@@ -141,9 +140,14 @@ const Requests = () => {
               />
             ))
           ) : (
-            <div className="text-center py-16">
-              <p className="text-gray-500 text-lg">No requests yet</p>
-              <p className="text-gray-600 text-sm mt-1">Be the first to request a movie!</p>
+            <div className="text-center py-20 rounded-2xl bg-white/[0.02] border border-white/[0.06]">
+              <div className="w-14 h-14 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center mx-auto mb-4">
+                <svg className="w-7 h-7 text-neutral-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                </svg>
+              </div>
+              <p className="text-neutral-300 font-medium mb-1">No requests yet</p>
+              <p className="text-neutral-500 text-sm">Be the first to request a movie!</p>
             </div>
           )}
         </div>

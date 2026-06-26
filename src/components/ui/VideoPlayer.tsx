@@ -1,340 +1,136 @@
-import { useState, useRef, useEffect, forwardRef, useCallback } from 'react';
-import { PlayIcon, PauseIcon, Volume2Icon, Maximize2Icon, SkipBackIcon, SkipForwardIcon, VolumeXIcon } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { useState, useEffect, useCallback } from 'react';
+import { AlertTriangle } from 'lucide-react';
+import type { VideoSource } from '@/hooks/useVideoSource';
 
-interface VideoPlayerProps extends React.VideoHTMLAttributes<HTMLVideoElement> {
-  sources?: Array<{ src: string; type: string; label?: string }>;
-  poster?: string;
-  title?: string;
-  youtubeKey?: string;
-  dailymotionUrl?: string;
+interface PlayerProps {
+  sources: VideoSource[];
+  title: string;
+  onClose?: () => void;
 }
 
-interface VideoPlayerRef {
-  play: () => Promise<void>;
-  pause: () => void;
-  seek: (time: number) => void;
-  setVolume: (volume: number) => void;
-  toggleFullscreen: () => void;
-}
+type PlayerState = 'loading' | 'playing' | 'error';
 
-const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(({ 
-  sources = [], 
-  poster, 
-  title, 
-  youtubeKey,
-  dailymotionUrl,
-  className, 
-  ...props 
-}, _ref) => {
-  void _ref;
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [currentTime, setCurrentTime] = useState(0);
-  const [duration, setDuration] = useState(0);
-  const [volume, setVolume] = useState(0.8);
-  const [isMuted, setIsMuted] = useState(false);
-  const [isFullscreen, setIsFullscreen] = useState(false);
-  const [showControls, setShowControls] = useState(true);
-  const [cacheProgress, setCacheProgress] = useState(false);
-  
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const playerRef = useRef<HTMLDivElement>(null);
-  const controlsTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-  const progressBarRef = useRef<HTMLDivElement>(null);
+const DURATION_TIMEOUT_MS = 15000;
 
-  const loadProgress = useCallback(() => {
-    if (title) {
-      const saved = localStorage.getItem(`video-progress-${title}`);
-      if (saved) {
-        const { time, volume: savedVolume, muted } = JSON.parse(saved);
-        setCurrentTime(time);
-        setVolume(savedVolume || 0.8);
-        setIsMuted(muted || false);
-      }
-    }
-  }, [title]);
+const IframeWithTimeout = ({ src, title }: { src: string; title: string }) => {
+  const [state, setState] = useState<PlayerState>('loading');
 
   useEffect(() => {
-    loadProgress();
-  }, [loadProgress]);
+    const timer = setTimeout(() => {
+      setState('error');
+    }, DURATION_TIMEOUT_MS);
 
-  const saveProgress = useCallback(() => {
-    if (title && currentTime > 0) {
-      localStorage.setItem(`video-progress-${title}`, JSON.stringify({
-        time: currentTime,
-        volume,
-        muted: isMuted,
-        timestamp: Date.now(),
-      }));
-    }
-  }, [title, currentTime, volume, isMuted]);
-
-  useEffect(() => {
-    const handleVisibilityChange = () => {
-      if (document.hidden) {
-        saveProgress();
-      } else {
-        loadProgress();
-      }
-    };
-
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
-  }, [saveProgress, loadProgress]);
-
-  const togglePlay = useCallback(async () => {
-    if (!videoRef.current) return;
-    
-    try {
-      if (isPlaying) {
-        videoRef.current.pause();
-        setIsPlaying(false);
-      } else {
-        await videoRef.current.play();
-        setIsPlaying(true);
-        setCacheProgress(false);
-      }
-    } catch {
-      setIsPlaying(false);
-    }
-  }, [isPlaying]);
-
-  const toggleFullscreen = useCallback(() => {
-    if (!playerRef.current) return;
-    
-    if (!isFullscreen) {
-      if (playerRef.current.requestFullscreen) {
-        playerRef.current.requestFullscreen();
-      }
-    } else {
-      if (document.exitFullscreen) {
-        document.exitFullscreen();
-      }
-    }
-    setIsFullscreen(!isFullscreen);
-  }, [isFullscreen]);
-
-  const seek = useCallback((time: number) => {
-    if (videoRef.current) {
-      videoRef.current.currentTime = time;
-      setCurrentTime(time);
-    }
+    return () => clearTimeout(timer);
   }, []);
-
-  useEffect(() => {
-    const handleKeyPress = (e: KeyboardEvent) => {
-      if (!videoRef.current) return;
-      
-      switch (e.key) {
-        case ' ':
-          e.preventDefault();
-          togglePlay();
-          break;
-        case 'ArrowLeft':
-          seek(Math.max(0, currentTime - 10));
-          break;
-        case 'ArrowRight':
-          seek(Math.min(duration, currentTime + 10));
-          break;
-        case 'ArrowUp':
-          setVolume(Math.min(1, volume + 0.1));
-          break;
-        case 'ArrowDown':
-          setVolume(Math.max(0, volume - 0.1));
-          break;
-        case 'f':
-          toggleFullscreen();
-          break;
-        case 'm':
-          setIsMuted(!isMuted);
-          break;
-      }
-    };
-
-    document.addEventListener('keydown', handleKeyPress);
-    return () => document.removeEventListener('keydown', handleKeyPress);
-  }, [isPlaying, currentTime, duration, volume, isMuted, togglePlay, toggleFullscreen, seek]);
-
-  const handleTimeUpdate = useCallback(() => {
-    if (videoRef.current) {
-      setCurrentTime(videoRef.current.currentTime);
-      const progress = (videoRef.current.currentTime / videoRef.current.duration) * 100;
-      setCacheProgress(progress > 80);
-    }
-  }, []);
-
-  const handleDurationChange = useCallback(() => {
-    if (videoRef.current) {
-      setDuration(videoRef.current.duration);
-    }
-  }, []);
-
-  const handleVolumeChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const newVolume = parseFloat(e.target.value);
-    setVolume(newVolume);
-    if (videoRef.current) {
-      videoRef.current.volume = newVolume;
-    }
-    setIsMuted(newVolume === 0);
-  }, []);
-
-  const showControlsTemporarily = useCallback(() => {
-    setShowControls(true);
-    if (controlsTimeoutRef.current) {
-      clearTimeout(controlsTimeoutRef.current);
-    }
-    controlsTimeoutRef.current = setTimeout(() => {
-      if (isPlaying) {
-        setShowControls(false);
-      }
-    }, 3000);
-  }, [isPlaying]);
-
-  const formatTime = useCallback((time: number) => {
-    const minutes = Math.floor(time / 60);
-    const seconds = Math.floor(time % 60);
-    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
-  }, []);
-
-  const progressPercentage = duration ? (currentTime / duration) * 100 : 0;
-
-  if (dailymotionUrl) {
-    return (
-      <div ref={playerRef} className={cn('relative w-full bg-black rounded-lg overflow-hidden', className)}>
-        <iframe
-          src={`${dailymotionUrl}?autoplay=1`}
-          title={title}
-          className="w-full aspect-video"
-          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-          allowFullScreen
-        />
-        <div className="absolute top-0 left-0 right-0 p-4 bg-gradient-to-b from-black/70 to-transparent pointer-events-none">
-          <h3 className="text-white font-semibold text-lg truncate">{title}</h3>
-        </div>
-      </div>
-    );
-  }
-
-  if (youtubeKey) {
-    return (
-      <div ref={playerRef} className={cn('relative w-full bg-black rounded-lg overflow-hidden', className)}>
-        <iframe
-          src={`https://www.youtube.com/embed/${youtubeKey}?autoplay=1&rel=0`}
-          title={title}
-          className="w-full aspect-video"
-          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-          allowFullScreen
-        />
-        <div className="absolute top-0 left-0 right-0 p-4 bg-gradient-to-b from-black/70 to-transparent pointer-events-none">
-          <h3 className="text-white font-semibold text-lg truncate">{title}</h3>
-        </div>
-      </div>
-    );
-  }
 
   return (
-    <div ref={playerRef} className={cn('relative group w-full bg-black', className)} onClick={togglePlay} onMouseMove={showControlsTemporarily}>
-      <video
-        ref={videoRef}
-        className="w-full h-full object-cover"
-        poster={poster}
-        onTimeUpdate={handleTimeUpdate}
-        onDurationChange={handleDurationChange}
-        onPlay={() => setIsPlaying(true)}
-        onPause={() => setIsPlaying(false)}
-        {...props}
-      >
-        {sources.map((source, index) => (
-          <source key={index} src={source.src} type={source.type} />
-        ))}
-        Your browser does not support the video tag.
-      </video>
-
-      <div className="absolute top-0 left-0 right-0 p-4 bg-gradient-to-b from-black/70 to-transparent z-10">
-        <h3 className="text-white font-semibold text-lg truncate">{title}</h3>
-      </div>
-
-      <div className={cn('absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/90 to-transparent p-4 z-10 transition-opacity duration-300', showControls ? 'opacity-100' : 'opacity-0')}>        
-        <div className="relative mb-4">
-          <div ref={progressBarRef} className="w-full h-1 bg-gray-600 rounded-full cursor-pointer" onClick={(e) => {
-            const rect = e.currentTarget.getBoundingClientRect();
-            const percent = (e.clientX - rect.left) / rect.width;
-            seek(percent * duration);
-          }}>
-            <div 
-              className={cn('h-full bg-white rounded-full relative transition-all', cacheProgress && 'bg-green-400')}
-              style={{ width: `${progressPercentage}%` }}
-            >
-              {cacheProgress && (
-                <div className="absolute right-0 top-1/2 -translate-y-1/2 w-3 h-3 bg-green-400 rounded-full animate-pulse" />
-              )}
-            </div>
+    <div className="relative w-full aspect-video bg-black">
+      {state === 'loading' && (
+        <div className="absolute inset-0 flex items-center justify-center bg-black z-10">
+          <div className="flex flex-col items-center gap-3">
+            <div className="w-8 h-8 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+            <p className="text-neutral-500 text-xs">Loading source...</p>
           </div>
-        </div>
-
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-2">
-            <button onClick={(e) => { e.stopPropagation(); togglePlay(); }} className="p-2 text-white hover:bg-white/20 rounded-full transition-colors" aria-label={isPlaying ? 'Pause' : 'Play'}>
-              {isPlaying ? <PauseIcon className="h-5 w-5" /> : <PlayIcon className="h-5 w-5" />}
-            </button>
-            
-            <button onClick={(e) => { e.stopPropagation(); seek(Math.max(0, currentTime - 10)); }} className="p-2 text-white hover:bg-white/20 rounded-full transition-colors" aria-label="Rewind 10 seconds">
-              <SkipBackIcon className="h-4 w-4" />
-            </button>
-            
-            <button onClick={(e) => { e.stopPropagation(); seek(Math.min(duration, currentTime + 10)); }} className="p-2 text-white hover:bg-white/20 rounded-full transition-colors" aria-label="Forward 10 seconds">
-              <SkipForwardIcon className="h-4 w-4" />
-            </button>
-
-            <div className="relative flex items-center space-x-2 ml-2">
-              <button onClick={(e) => { e.stopPropagation(); setIsMuted(!isMuted); }} className="p-2 text-white hover:bg-white/20 rounded-full transition-colors" aria-label={isMuted ? 'Unmute' : 'Mute'}>
-                {isMuted ? <VolumeXIcon className="h-4 w-4" /> : <Volume2Icon className="h-4 w-4" />}
-              </button>
-              <input
-                type="range"
-                min="0"
-                max="1"
-                step="0.1"
-                value={isMuted ? 0 : volume}
-                onChange={handleVolumeChange}
-                onClick={(e) => e.stopPropagation()}
-                className="w-16 h-1 bg-gray-600 rounded-full cursor-pointer"
-                aria-label="Volume"
-              />
-            </div>
-
-            <div className="text-white text-sm font-mono ml-2">
-              {formatTime(currentTime)} / {formatTime(duration)}
-            </div>
-          </div>
-
-          <div className="flex items-center space-x-2">
-            <button onClick={(e) => { e.stopPropagation(); toggleFullscreen(); }} className="p-2 text-white hover:bg-white/20 rounded-full transition-colors" aria-label={isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}>
-              <Maximize2Icon className="h-4 w-4" />
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {!isPlaying && showControls && (
-        <div className="absolute bottom-4 right-4 z-20">
-          <button onClick={(e) => { e.stopPropagation(); togglePlay(); }} className="p-3 bg-white/20 backdrop-blur rounded-full text-white hover:bg-white/30 transition-all" aria-label="Play">
-            <PlayIcon className="h-6 w-6" />
-          </button>
         </div>
       )}
+      {state === 'error' ? (
+        <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-black z-10">
+          <AlertTriangle className="w-8 h-8 text-neutral-600" />
+          <p className="text-sm font-medium text-neutral-400">Source unavailable</p>
+          <p className="text-xs text-neutral-600">Try a different source below</p>
+        </div>
+      ) : null}
+      <iframe
+        src={src}
+        title={title}
+        className={`w-full h-full ${state === 'error' ? 'hidden' : ''}`}
+        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+        allowFullScreen
+        onLoad={() => setState('playing')}
+      />
+    </div>
+  );
+};
 
-      {isFullscreen && (
-        <div className="absolute top-4 left-4 z-20">
-          <div className="px-3 py-1 bg-white/20 backdrop-blur rounded-full text-white text-sm">
-            Theater Mode
+const VideoPlayer = ({ sources, title, onClose }: PlayerProps) => {
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const currentSource = sources[currentIndex];
+
+  const goToSource = useCallback((index: number) => {
+    if (index >= 0 && index < sources.length) {
+      setCurrentIndex(index);
+    }
+  }, [sources.length]);
+
+  const sourceLabel = currentSource?.source === 'dailymotion' ? 'Dailymotion' : 'Archive';
+  const durationLabel = currentSource?.duration
+    ? `${Math.floor(currentSource.duration / 60)}min`
+    : '';
+
+  return (
+    <div className="w-full max-w-5xl mx-auto">
+      <div className="relative bg-black rounded-2xl overflow-hidden border border-white/[0.06]">
+        <IframeWithTimeout
+          key={currentSource?.embedUrl}
+          src={currentSource?.source === 'dailymotion'
+            ? `${currentSource.embedUrl}?autoplay=1&queue-enable=0`
+            : `${currentSource?.embedUrl}?autoplay=1`}
+          title={currentSource?.title ?? title}
+        />
+
+        {currentSource?.isFullMovie && (
+          <div className="absolute top-3 left-3 z-10">
+            <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-emerald-500/90 text-white text-xs font-semibold rounded-lg backdrop-blur-sm">
+              Full Movie
+            </span>
+          </div>
+        )}
+
+        <div className="absolute top-3 right-3 z-10 flex items-center gap-2">
+          <div className="bg-black/50 glass-subtle backdrop-blur-md text-white/80 text-xs px-2.5 py-1 rounded-lg flex items-center gap-1.5">
+            <span>{sourceLabel}</span>
+            {durationLabel && <span className="text-white/40">·</span>}
+            {durationLabel && <span>{durationLabel}</span>}
+          </div>
+          {onClose && (
+            <button
+              onClick={onClose}
+              className="bg-black/50 glass-subtle backdrop-blur-md hover:bg-black/70 text-white rounded-full p-1.5 transition-all duration-200"
+              aria-label="Close player"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          )}
+        </div>
+      </div>
+
+      {sources.length > 1 && (
+        <div className="mt-4">
+          <p className="text-xs text-neutral-600 mb-2.5 font-medium uppercase tracking-widest">Sources</p>
+          <div className="flex flex-wrap gap-2">
+            {sources.map((source, i) => (
+              <button
+                key={source.id}
+                onClick={() => goToSource(i)}
+                className={`text-xs px-3 py-1.5 rounded-lg border transition-all duration-200 ${
+                  i === currentIndex
+                    ? 'bg-white text-black border-white font-medium shadow-[0_0_12px_rgba(255,255,255,0.1)]'
+                    : 'bg-white/5 text-neutral-400 border-white/[0.08] hover:text-white hover:border-white/20'
+                }`}
+              >
+                {source.source === 'dailymotion' ? 'DM' : 'IA'}
+                {' · '}
+                {source.isFullMovie ? 'Full' : source.duration > 0 ? `${Math.floor(source.duration / 60)}m` : 'Clip'}
+                {source.views > 0 && <span className="text-neutral-600 ml-1">+{source.views}</span>}
+              </button>
+            ))}
           </div>
         </div>
       )}
     </div>
   );
-});
-
-VideoPlayer.displayName = 'VideoPlayer';
+};
 
 export default VideoPlayer;

@@ -73,6 +73,8 @@ export interface RequestVote {
 
 export type QualityOption = '480p' | '720p' | '1080p';
 
+export type VideoSourceType = 'dailymotion' | 'youtube' | 'archive';
+
 export interface Download {
   id: string;
   user_id: string;
@@ -82,6 +84,24 @@ export interface Download {
   quality: QualityOption;
   status: 'downloading' | 'ready' | 'failed';
   downloaded_at: string;
+}
+
+export type VideoProvider = 'youtube' | 'dailymotion' | 'vimeo' | 'twitch' | 'facebook' | 'vevo' | 'other';
+
+export interface CommunityVideo {
+  id: string;
+  title: string;
+  url: string;
+  embed_url: string;
+  provider: VideoProvider;
+  submitted_by: string;
+  tmdb_id: number | null;
+  year: number | null;
+  language: string;
+  poster_url: string | null;
+  vote_count: number;
+  status: 'pending' | 'approved' | 'rejected';
+  created_at: string;
 }
 
 export interface Profile {

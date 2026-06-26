@@ -1,11 +1,13 @@
 import { useQuery } from '@tanstack/react-query';
-import { searchFullMovie, searchTrailers } from '@/lib/dailymotion';
-import { getMovieVideos } from '@/lib/tmdb';
+import { searchFullMovie, searchAllDailymotion, searchTrailers } from '@/lib/dailymotion';
+import { searchInternetArchive } from '@/lib/internetarchive';
+
+export type VideoSourceType = 'dailymotion' | 'archive';
 
 export interface VideoSource {
   id: string;
   title: string;
-  source: 'dailymotion' | 'youtube';
+  source: VideoSourceType;
   embedUrl: string;
   thumbnail: string;
   duration: number;
@@ -13,7 +15,18 @@ export interface VideoSource {
   views: number;
 }
 
+export interface TrailerSource {
+  id: string;
+  title: string;
+  source: 'dailymotion' | 'youtube';
+  embedUrl: string;
+  thumbnail: string;
+  duration: number;
+}
+
 export type VideoStatus = 'loading' | 'available' | 'not-found' | 'error';
+
+export type SearchStage = 'dailymotion' | 'archive' | 'complete';
 
 interface UseVideoSourceOptions {
   movieId: number;
@@ -22,16 +35,20 @@ interface UseVideoSourceOptions {
 }
 
 interface UseVideoSourceReturn {
-  videoSources: VideoSource[];
+  playableSources: VideoSource[];
   isLoading: boolean;
   error: Error | null;
   hasFullMovie: boolean;
-  hasYouTubeTrailers: boolean;
   status: VideoStatus;
-  dmFullMovie: VideoSource | null;
-  dmTrailerSources: VideoSource[];
-  youtubeTrailerSources: VideoSource[];
+  searchStage: SearchStage;
+  primarySource: VideoSource | null;
+  trailerSources: TrailerSource[];
 }
+
+const MIN_FULL_MOVIE = 45 * 60;
+const MAX_FULL_MOVIE = 4 * 60 * 60;
+
+const isFullMovie = (duration: number) => duration >= MIN_FULL_MOVIE && duration <= MAX_FULL_MOVIE;
 
 export const useVideoSource = ({ movieId, movieTitle, year }: UseVideoSourceOptions): UseVideoSourceReturn => {
   const hasTitle = movieTitle.trim().length > 0;
@@ -43,6 +60,13 @@ export const useVideoSource = ({ movieId, movieTitle, year }: UseVideoSourceOpti
     staleTime: 1000 * 60 * 60,
   });
 
+  const dmAllQuery = useQuery({
+    queryKey: ['dailymotion', 'all', movieId],
+    queryFn: () => searchAllDailymotion(movieTitle, year),
+    enabled: movieId > 0 && hasTitle && !dmFullMovieQuery.data,
+    staleTime: 1000 * 60 * 60,
+  });
+
   const dmTrailersQuery = useQuery({
     queryKey: ['dailymotion', 'trailers', movieId],
     queryFn: () => searchTrailers(movieTitle, year),
@@ -50,94 +74,114 @@ export const useVideoSource = ({ movieId, movieTitle, year }: UseVideoSourceOpti
     staleTime: 1000 * 60 * 60,
   });
 
-  const youtubeVideosQuery = useQuery({
-    queryKey: ['youtube', 'videos', movieId],
-    queryFn: async () => {
-      const response = await getMovieVideos(movieId);
-      return response.results.filter((v) => v.site === 'YouTube');
-    },
-    enabled: movieId > 0 && hasTitle && !dmFullMovieQuery.data && dmTrailersQuery.data?.length === 0,
+  const archiveQuery = useQuery({
+    queryKey: ['archive', 'movie', movieId],
+    queryFn: () => searchInternetArchive(movieTitle, year),
+    enabled: movieId > 0 && hasTitle && !dmFullMovieQuery.data,
     staleTime: 1000 * 60 * 60,
   });
 
-  const videoSources: VideoSource[] = [];
-  let dmFullMovie: VideoSource | null = null;
-  const dmTrailerSources: VideoSource[] = [];
-  const youtubeTrailerSources: VideoSource[] = [];
+  const playableSources: VideoSource[] = [];
 
   if (dmFullMovieQuery.data) {
-    dmFullMovie = {
+    playableSources.push({
       id: dmFullMovieQuery.data.id,
-      title: `${dmFullMovieQuery.data.title} (Full Movie)`,
+      title: dmFullMovieQuery.data.title,
       source: 'dailymotion',
       embedUrl: dmFullMovieQuery.data.embed_url,
       thumbnail: dmFullMovieQuery.data.thumbnail_720_url,
       duration: dmFullMovieQuery.data.duration,
       isFullMovie: true,
       views: dmFullMovieQuery.data.views_total,
-    };
-    videoSources.push(dmFullMovie);
+    });
   }
 
+  if (!dmFullMovieQuery.data && dmAllQuery.data?.length) {
+    const fullMovies = dmAllQuery.data.filter((v) => isFullMovie(v.duration));
+    const clips = dmAllQuery.data.filter((v) => !isFullMovie(v.duration));
+
+    for (const video of [...fullMovies, ...clips].slice(0, 5)) {
+      if (!playableSources.some((s) => s.id === video.id)) {
+        playableSources.push({
+          id: video.id,
+          title: isFullMovie(video.duration) ? `${video.title} (Full Movie)` : video.title,
+          source: 'dailymotion',
+          embedUrl: video.embed_url,
+          thumbnail: video.thumbnail_720_url,
+          duration: video.duration,
+          isFullMovie: isFullMovie(video.duration),
+          views: video.views_total,
+        });
+      }
+    }
+  }
+
+  if (archiveQuery.data?.length) {
+    for (const video of archiveQuery.data.slice(0, 3)) {
+      playableSources.push({
+        id: video.id,
+        title: video.title,
+        source: 'archive',
+        embedUrl: video.embedUrl,
+        thumbnail: video.thumbnail,
+        duration: video.duration,
+        isFullMovie: video.duration >= MIN_FULL_MOVIE,
+        views: video.views,
+      });
+    }
+  }
+
+  const trailerSources: TrailerSource[] = [];
+
   if (dmTrailersQuery.data?.length) {
-    dmTrailersQuery.data.forEach((video) => {
-      const source: VideoSource = {
+    for (const video of dmTrailersQuery.data.slice(0, 6)) {
+      trailerSources.push({
         id: video.id,
         title: video.title,
         source: 'dailymotion',
         embedUrl: video.embed_url,
         thumbnail: video.thumbnail_720_url,
         duration: video.duration,
-        isFullMovie: false,
-        views: video.views_total,
-      };
-      dmTrailerSources.push(source);
-      videoSources.push(source);
-    });
+      });
+    }
   }
 
-  if (youtubeVideosQuery.data?.length) {
-    youtubeVideosQuery.data.forEach((video) => {
-      const source: VideoSource = {
-        id: `yt-${video.id}`,
-        title: video.name,
-        source: 'youtube',
-        embedUrl: `https://www.youtube.com/embed/${video.key}?autoplay=1&rel=0`,
-        thumbnail: `https://img.youtube.com/vi/${video.key}/mqdefault.jpg`,
-        duration: 0,
-        isFullMovie: false,
-        views: 0,
-      };
-      youtubeTrailerSources.push(source);
-      videoSources.push(source);
-    });
-  }
+  const isLoading =
+    dmFullMovieQuery.isLoading ||
+    (dmAllQuery.isLoading && !dmFullMovieQuery.data) ||
+    dmTrailersQuery.isLoading ||
+    (archiveQuery.isLoading && !dmFullMovieQuery.data);
 
-  const isLoading = dmFullMovieQuery.isLoading || dmTrailersQuery.isLoading || youtubeVideosQuery.isLoading;
-  const error = dmFullMovieQuery.error || dmTrailersQuery.error || youtubeVideosQuery.error;
+  const error = dmFullMovieQuery.error || dmAllQuery.error || dmTrailersQuery.error || archiveQuery.error;
 
   let status: VideoStatus = 'loading';
   if (!isLoading) {
-    if (videoSources.length > 0) {
+    if (playableSources.length > 0) {
       status = 'available';
     } else if (error) {
       status = 'error';
     } else {
       status = 'not-found';
     }
-  } else if (error) {
-    status = 'error';
   }
 
+  let searchStage: SearchStage = 'dailymotion';
+  if (!isLoading) {
+    searchStage = 'complete';
+  } else if (!dmFullMovieQuery.isLoading && !dmAllQuery.isLoading && archiveQuery.isLoading) {
+    searchStage = 'archive';
+  }
+
+  const primarySource = playableSources.length > 0 ? playableSources[0] : null;
+
   return {
-    videoSources,
+    playableSources,
     isLoading,
     error,
-    hasFullMovie: dmFullMovie !== null,
-    hasYouTubeTrailers: youtubeTrailerSources.length > 0,
+    hasFullMovie: primarySource?.isFullMovie ?? false,
     status,
-    dmFullMovie,
-    dmTrailerSources,
-    youtubeTrailerSources,
+    searchStage,
+    primarySource,
+    trailerSources,
   };
 };
