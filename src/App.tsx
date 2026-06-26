@@ -26,6 +26,10 @@ const RouteSkeleton = ({ children }: { children: React.ReactNode }) => (
 
 const router = createBrowserRouter([
   {
+    path: '/',
+    element: <Navigate to="/browse" replace />,
+  },
+  {
     path: '/login',
     element: (
       <RouteSkeleton>

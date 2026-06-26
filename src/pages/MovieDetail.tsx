@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useMovieDetail } from '@/hooks/useMovieDetail';
 import { useVideoSource } from '@/hooks/useVideoSource';
@@ -8,8 +8,45 @@ import MovieCard from '@/components/movies/MovieCard';
 import VideoPlayer from '@/components/ui/VideoPlayer';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
-import { PlayIcon, XIcon } from 'lucide-react';
-import type { Movie, Video, CastMember } from '@/types';
+import { PlayIcon, XIcon, FilmIcon } from 'lucide-react';
+import type { Movie, Video as TmdbVideo, CastMember } from '@/types';
+import type { VideoStatus } from '@/hooks/useVideoSource';
+
+type PlayerSource =
+  | { type: 'youtube'; key: string; name: string }
+  | { type: 'dailymotion'; url: string; name: string };
+
+const StatusBadge = ({ status }: { status: VideoStatus }) => {
+  if (status === 'loading') {
+    return (
+      <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-500/20 text-yellow-400">
+        <span className="w-1.5 h-1.5 rounded-full bg-yellow-400 animate-pulse" />
+        Searching...
+      </span>
+    );
+  }
+  if (status === 'available') {
+    return (
+      <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-500/20 text-green-400">
+        <span className="w-1.5 h-1.5 rounded-full bg-green-400" />
+        Available
+      </span>
+    );
+  }
+  if (status === 'not-found') {
+    return (
+      <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-500/20 text-red-400">
+        <span className="w-1.5 h-1.5 rounded-full bg-red-400" />
+        Not Found
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-500/20 text-red-400">
+      Error
+    </span>
+  );
+};
 
 const MovieDetail = () => {
   const { id } = useParams<{ id: string }>();
@@ -23,47 +60,50 @@ const MovieDetail = () => {
     url: movie?.id ? `https://streamapp.example.com/movie/${movie.id}` : undefined,
     type: 'article',
   });
-  const { videoSources, hasFullMovie } = useVideoSource({
+
+  const { status, isLoading: isVideoLoading, dmFullMovie, dmTrailerSources, youtubeTrailerSources } = useVideoSource({
     movieId,
     movieTitle: movie?.title ?? '',
     year: movie?.release_date ? parseInt(movie.release_date.split('-')[0]) : undefined,
   });
-  const dmTrailerSources = videoSources.filter((s) => s.source === 'dailymotion' && !s.isFullMovie);
-  const [isVideoModalOpen, setIsVideoModalOpen] = useState(false);
-  const [playerSource, setPlayerSource] = useState<{
-    type: 'youtube' | 'dailymotion';
-    key?: string;
-    url?: string;
-    name: string;
-  } | null>(null);
 
-  if (error) {
-    return (
-      <div className="min-h-screen bg-gray-950 text-white flex items-center justify-center p-4">
-        <p className="text-red-500">Error loading movie details: {error.message}</p>
-      </div>
-    );
-  }
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [playerSource, setPlayerSource] = useState<PlayerSource | null>(null);
 
-  const openVideoModal = (video: Video) => {
-    setPlayerSource({ type: 'youtube', key: video.key, name: video.name });
-    setIsVideoModalOpen(true);
-  };
+  const openPlayer = useCallback((source: PlayerSource) => {
+    setPlayerSource(source);
+    setIsModalOpen(true);
+  }, []);
 
-  const openDmVideo = (url: string, name: string) => {
-    setPlayerSource({ type: 'dailymotion', url, name });
-    setIsVideoModalOpen(true);
-  };
-
-  const closeVideoModal = () => {
-    setIsVideoModalOpen(false);
+  const closePlayer = useCallback(() => {
+    setIsModalOpen(false);
     setPlayerSource(null);
-  };
+  }, []);
 
-  const getTrailers = () =>
-    videos.filter((video: Video) => video.type === 'Trailer' || video.site === 'YouTube') || [];
+  const handlePlay = useCallback(() => {
+    if (dmFullMovie) {
+      openPlayer({ type: 'dailymotion', url: dmFullMovie.embedUrl, name: dmFullMovie.title });
+    } else if (dmTrailerSources.length > 0) {
+      openPlayer({ type: 'dailymotion', url: dmTrailerSources[0].embedUrl, name: dmTrailerSources[0].title });
+    } else if (youtubeTrailerSources.length > 0) {
+      openPlayer({ type: 'youtube', key: youtubeTrailerSources[0].id.replace('yt-', ''), name: youtubeTrailerSources[0].title });
+    }
+  }, [dmFullMovie, dmTrailerSources, youtubeTrailerSources, openPlayer]);
 
-  const otherVideos = videos.filter((video: Video) => !getTrailers().includes(video)) || [];
+  const handleWatchTrailer = useCallback(() => {
+    const ytTrailer = videos.find((v: TmdbVideo) => v.site === 'YouTube' && (v.type === 'Trailer' || v.type === 'Teaser'));
+    if (ytTrailer) {
+      openPlayer({ type: 'youtube', key: ytTrailer.key, name: ytTrailer.name });
+    }
+  }, [videos, openPlayer]);
+
+  const playLabel = dmFullMovie ? 'Watch Full Movie' : dmTrailerSources.length > 0 ? 'Watch Trailer' : 'Play';
+
+  const getYouTubeTrailers = () =>
+    videos.filter((v: TmdbVideo) => v.site === 'YouTube') || [];
+
+  const getFeaturedTrailer = () =>
+    videos.find((v: TmdbVideo) => v.site === 'YouTube' && (v.type === 'Trailer' || v.type === 'Teaser'));
 
   const formatRuntime = (minutes: number) => {
     const hours = Math.floor(minutes / 60);
@@ -91,6 +131,14 @@ const MovieDetail = () => {
     </div>
   );
 
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gray-950 text-white flex items-center justify-center p-4">
+        <p className="text-red-500">Error loading movie details: {error.message}</p>
+      </div>
+    );
+  }
+
   if (isLoading) {
     return renderSkeleton();
   }
@@ -102,6 +150,8 @@ const MovieDetail = () => {
       </div>
     );
   }
+
+  const showNoVideoState = !isVideoLoading && status === 'not-found';
 
   return (
     <div className="min-h-screen bg-gray-950 text-white">
@@ -115,45 +165,80 @@ const MovieDetail = () => {
         ) : (
           <div className="absolute inset-0 bg-gray-800" />
         )}
-        <div className="absolute inset-0 bg-gradient-to-t from-gray-950 to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-t from-gray-950 via-gray-950/60 to-transparent" />
         <div className="absolute bottom-0 left-0 right-0 p-4 md:p-8">
-          <h1 className="text-3xl md:text-5xl font-bold mb-4">{movie.title}</h1>
-          <div className="flex flex-wrap items-center gap-4 text-sm md:text-base">
+          <h1 className="text-3xl md:text-5xl font-bold mb-3">{movie.title}</h1>
+          <div className="flex flex-wrap items-center gap-3 text-sm md:text-base text-gray-300 mb-4">
             <span>{movie.release_date?.split('-')[0]}</span>
-            {movie.runtime && <span>{formatRuntime(movie.runtime)}</span>}
-            <span className="flex items-center">
-              <span className="text-yellow-500 mr-1">★</span>
-              {movie.vote_average?.toFixed(1)}
-            </span>
+            {movie.runtime ? <span>{formatRuntime(movie.runtime)}</span> : null}
+            {movie.vote_average ? (
+              <span className="flex items-center gap-1">
+                <span className="text-yellow-500">★</span>
+                {movie.vote_average.toFixed(1)}
+              </span>
+            ) : null}
           </div>
-          {hasFullMovie && (
+          <StatusBadge status={status} />
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 mt-4">
             <Button
-              onClick={() => {
-                const fullMovie = videoSources.find((s) => s.isFullMovie);
-                if (fullMovie) {
-                  openDmVideo(fullMovie.embedUrl, fullMovie.title);
-                }
-              }}
-              className="mt-4 bg-white text-black hover:bg-gray-200 font-semibold"
+              onClick={handlePlay}
+              disabled={isVideoLoading || status === 'not-found'}
+              className="min-h-[44px] w-full sm:w-auto bg-white text-black hover:bg-gray-200 font-semibold px-6"
               size="lg"
             >
-              <PlayIcon className="w-5 h-5 mr-2" />
-              Watch Full Movie
+              {isVideoLoading ? (
+                <span className="flex items-center gap-2">
+                  <span className="w-4 h-4 rounded-full border-2 border-black/30 border-t-black animate-spin" />
+                  Searching...
+                </span>
+              ) : (
+                <>
+                  <PlayIcon className="w-5 h-5 mr-2 shrink-0" />
+                  {playLabel}
+                </>
+              )}
             </Button>
-          )}
+            {getFeaturedTrailer() ? (
+              <Button
+                onClick={handleWatchTrailer}
+                variant="outline"
+                className="min-h-[44px] w-full sm:w-auto border-gray-600 text-white hover:bg-gray-800 px-6"
+                size="lg"
+              >
+                <PlayIcon className="w-5 h-5 mr-2 shrink-0" />
+                Watch Trailer
+              </Button>
+            ) : null}
+          </div>
         </div>
       </div>
 
       <div className="max-w-7xl mx-auto p-4 md:p-8">
+        {showNoVideoState ? (
+          <div className="bg-gray-900 rounded-lg p-6 md:p-8 mb-8 text-center">
+            <FilmIcon className="w-12 h-12 text-gray-600 mx-auto mb-4" />
+            <h3 className="text-lg font-semibold mb-2">No Video Available</h3>
+            <p className="text-gray-400 text-sm mb-4 max-w-md mx-auto">
+              We couldn&apos;t find this movie on our sources. Request it and we&apos;ll add it as soon as possible.
+            </p>
+            <Button
+              onClick={() => navigate('/requests')}
+              className="bg-white text-black hover:bg-gray-200 font-medium"
+            >
+              Request This Movie
+            </Button>
+          </div>
+        ) : null}
+
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-12">
           <div className="md:col-span-1">
-            {movie.poster_path && (
+            {movie.poster_path ? (
               <img
                 src={`https://image.tmdb.org/t/p/w500${movie.poster_path}`}
                 alt={movie.title}
                 className="w-full rounded-lg shadow-lg"
               />
-            )}
+            ) : null}
           </div>
 
           <div className="md:col-span-2">
@@ -168,15 +253,15 @@ const MovieDetail = () => {
               />
             </div>
 
-            {getTrailers().length > 0 && (
+            {getYouTubeTrailers().length > 0 ? (
               <div className="mb-8">
-                <h2 className="text-2xl font-bold mb-4">Trailers</h2>
+                <h2 className="text-2xl font-bold mb-4">Trailers & Clips</h2>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {getTrailers().slice(0, 3).map((trailer: Video) => (
-                    <Button
+                  {getYouTubeTrailers().slice(0, 6).map((trailer: TmdbVideo) => (
+                    <button
                       key={trailer.id}
-                      onClick={() => openVideoModal(trailer)}
-                      className="group relative h-40 rounded-lg overflow-hidden hover:scale-105 transition-transform duration-200"
+                      onClick={() => openPlayer({ type: 'youtube', key: trailer.key, name: trailer.name })}
+                      className="group relative h-40 rounded-lg overflow-hidden hover:scale-105 transition-transform duration-200 bg-gray-900"
                     >
                       <img
                         src={`https://img.youtube.com/vi/${trailer.key}/mqdefault.jpg`}
@@ -189,21 +274,21 @@ const MovieDetail = () => {
                       <div className="absolute bottom-0 left-0 right-0 p-2 bg-gradient-to-t from-black/80 to-transparent">
                         <p className="text-sm truncate">{trailer.name}</p>
                       </div>
-                    </Button>
+                    </button>
                   ))}
                 </div>
               </div>
-            )}
+            ) : null}
 
-            {dmTrailerSources.length > 0 && (
+            {dmTrailerSources.length > 0 ? (
               <div className="mb-8">
-                <h2 className="text-2xl font-bold mb-4">Dailymotion Trailers</h2>
+                <h2 className="text-2xl font-bold mb-4">More Videos</h2>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                   {dmTrailerSources.slice(0, 3).map((source) => (
-                    <Button
+                    <button
                       key={source.id}
-                      onClick={() => openDmVideo(source.embedUrl, source.title)}
-                      className="group relative h-40 rounded-lg overflow-hidden hover:scale-105 transition-transform duration-200"
+                      onClick={() => openPlayer({ type: 'dailymotion', url: source.embedUrl, name: source.title })}
+                      className="group relative h-40 rounded-lg overflow-hidden hover:scale-105 transition-transform duration-200 bg-gray-900"
                     >
                       <img
                         src={source.thumbnail}
@@ -216,30 +301,11 @@ const MovieDetail = () => {
                       <div className="absolute bottom-0 left-0 right-0 p-2 bg-gradient-to-t from-black/80 to-transparent">
                         <p className="text-sm truncate">{source.title}</p>
                       </div>
-                    </Button>
+                    </button>
                   ))}
                 </div>
               </div>
-            )}
-
-            {otherVideos.length > 0 && (
-              <div className="mb-8">
-                <h2 className="text-2xl font-bold mb-4">Other Videos</h2>
-                <div className="flex flex-wrap gap-2">
-                  {otherVideos.slice(0, 5).map((video: Video) => (
-                    <Button
-                      key={video.id}
-                      onClick={() => openVideoModal(video)}
-                      variant="outline"
-                      className="text-white border-gray-700 hover:bg-gray-800"
-                    >
-                      <PlayIcon className="w-4 h-4 mr-2" />
-                      {video.name}
-                    </Button>
-                  ))}
-                </div>
-              </div>
-            )}
+            ) : null}
           </div>
         </div>
 
@@ -300,27 +366,27 @@ const MovieDetail = () => {
           </div>
         </div>
 
-        {similarMovies.length > 0 && (
+        {similarMovies.length > 0 ? (
           <div>
             <h2 className="text-2xl font-bold mb-6">Similar Movies</h2>
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
-              {similarMovies.map((movie: Movie) => (
+              {similarMovies.map((m: Movie) => (
                 <MovieCard
-                  key={movie.id}
-                  movie={movie}
-                  onClick={() => navigate(`/movie/${movie.id}`)}
+                  key={m.id}
+                  movie={m}
+                  onClick={() => navigate(`/movie/${m.id}`)}
                 />
               ))}
             </div>
           </div>
-        )}
+        ) : null}
       </div>
 
-      {isVideoModalOpen && playerSource && (
+      {isModalOpen && playerSource ? (
         <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-50 p-4">
           <div className="relative w-full max-w-4xl">
             <Button
-              onClick={closeVideoModal}
+              onClick={closePlayer}
               className="absolute -top-12 right-0 text-white hover:text-gray-300 bg-transparent hover:bg-transparent"
               variant="ghost"
             >
@@ -341,7 +407,7 @@ const MovieDetail = () => {
             )}
           </div>
         </div>
-      )}
+      ) : null}
     </div>
   );
 };

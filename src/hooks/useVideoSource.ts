@@ -13,57 +13,75 @@ export interface VideoSource {
   views: number;
 }
 
+export type VideoStatus = 'loading' | 'available' | 'not-found' | 'error';
+
 interface UseVideoSourceOptions {
   movieId: number;
   movieTitle: string;
   year?: number;
 }
 
-export const useVideoSource = ({ movieId, movieTitle, year }: UseVideoSourceOptions) => {
+interface UseVideoSourceReturn {
+  videoSources: VideoSource[];
+  isLoading: boolean;
+  error: Error | null;
+  hasFullMovie: boolean;
+  hasYouTubeTrailers: boolean;
+  status: VideoStatus;
+  dmFullMovie: VideoSource | null;
+  dmTrailerSources: VideoSource[];
+  youtubeTrailerSources: VideoSource[];
+}
+
+export const useVideoSource = ({ movieId, movieTitle, year }: UseVideoSourceOptions): UseVideoSourceReturn => {
   const hasTitle = movieTitle.trim().length > 0;
 
-  const dmFullMovie = useQuery({
+  const dmFullMovieQuery = useQuery({
     queryKey: ['dailymotion', 'fullmovie', movieId],
     queryFn: () => searchFullMovie(movieTitle, year),
     enabled: movieId > 0 && hasTitle,
     staleTime: 1000 * 60 * 60,
   });
 
-  const dmTrailers = useQuery({
+  const dmTrailersQuery = useQuery({
     queryKey: ['dailymotion', 'trailers', movieId],
     queryFn: () => searchTrailers(movieTitle, year),
     enabled: movieId > 0 && hasTitle,
     staleTime: 1000 * 60 * 60,
   });
 
-  const youtubeVideos = useQuery({
+  const youtubeVideosQuery = useQuery({
     queryKey: ['youtube', 'videos', movieId],
     queryFn: async () => {
       const response = await getMovieVideos(movieId);
       return response.results.filter((v) => v.site === 'YouTube');
     },
-    enabled: movieId > 0 && hasTitle && !dmFullMovie.data && dmTrailers.data?.length === 0,
+    enabled: movieId > 0 && hasTitle && !dmFullMovieQuery.data && dmTrailersQuery.data?.length === 0,
     staleTime: 1000 * 60 * 60,
   });
 
   const videoSources: VideoSource[] = [];
+  let dmFullMovie: VideoSource | null = null;
+  const dmTrailerSources: VideoSource[] = [];
+  const youtubeTrailerSources: VideoSource[] = [];
 
-  if (dmFullMovie.data) {
-    videoSources.push({
-      id: dmFullMovie.data.id,
-      title: `${dmFullMovie.data.title} (Full Movie)`,
+  if (dmFullMovieQuery.data) {
+    dmFullMovie = {
+      id: dmFullMovieQuery.data.id,
+      title: `${dmFullMovieQuery.data.title} (Full Movie)`,
       source: 'dailymotion',
-      embedUrl: dmFullMovie.data.embed_url,
-      thumbnail: dmFullMovie.data.thumbnail_720_url,
-      duration: dmFullMovie.data.duration,
+      embedUrl: dmFullMovieQuery.data.embed_url,
+      thumbnail: dmFullMovieQuery.data.thumbnail_720_url,
+      duration: dmFullMovieQuery.data.duration,
       isFullMovie: true,
-      views: dmFullMovie.data.views_total,
-    });
+      views: dmFullMovieQuery.data.views_total,
+    };
+    videoSources.push(dmFullMovie);
   }
 
-  if (dmTrailers.data?.length) {
-    dmTrailers.data.forEach((video) => {
-      videoSources.push({
+  if (dmTrailersQuery.data?.length) {
+    dmTrailersQuery.data.forEach((video) => {
+      const source: VideoSource = {
         id: video.id,
         title: video.title,
         source: 'dailymotion',
@@ -72,13 +90,15 @@ export const useVideoSource = ({ movieId, movieTitle, year }: UseVideoSourceOpti
         duration: video.duration,
         isFullMovie: false,
         views: video.views_total,
-      });
+      };
+      dmTrailerSources.push(source);
+      videoSources.push(source);
     });
   }
 
-  if (youtubeVideos.data?.length) {
-    youtubeVideos.data.forEach((video) => {
-      videoSources.push({
+  if (youtubeVideosQuery.data?.length) {
+    youtubeVideosQuery.data.forEach((video) => {
+      const source: VideoSource = {
         id: `yt-${video.id}`,
         title: video.name,
         source: 'youtube',
@@ -87,14 +107,37 @@ export const useVideoSource = ({ movieId, movieTitle, year }: UseVideoSourceOpti
         duration: 0,
         isFullMovie: false,
         views: 0,
-      });
+      };
+      youtubeTrailerSources.push(source);
+      videoSources.push(source);
     });
+  }
+
+  const isLoading = dmFullMovieQuery.isLoading || dmTrailersQuery.isLoading || youtubeVideosQuery.isLoading;
+  const error = dmFullMovieQuery.error || dmTrailersQuery.error || youtubeVideosQuery.error;
+
+  let status: VideoStatus = 'loading';
+  if (!isLoading) {
+    if (videoSources.length > 0) {
+      status = 'available';
+    } else if (error) {
+      status = 'error';
+    } else {
+      status = 'not-found';
+    }
+  } else if (error) {
+    status = 'error';
   }
 
   return {
     videoSources,
-    isLoading: dmFullMovie.isLoading || dmTrailers.isLoading || youtubeVideos.isLoading,
-    error: dmFullMovie.error || dmTrailers.error || youtubeVideos.error,
-    hasFullMovie: !!dmFullMovie.data,
+    isLoading,
+    error,
+    hasFullMovie: dmFullMovie !== null,
+    hasYouTubeTrailers: youtubeTrailerSources.length > 0,
+    status,
+    dmFullMovie,
+    dmTrailerSources,
+    youtubeTrailerSources,
   };
 };

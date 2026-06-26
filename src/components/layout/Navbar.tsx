@@ -1,11 +1,10 @@
 import { Link, useNavigation, useLocation } from 'react-router-dom';
-import { useState } from 'react';
 
 const Navbar = () => {
   const navigation = useNavigation();
   const location = useLocation();
   const isLoading = navigation.state === 'loading';
-  const [activePath, setActivePath] = useState(location.pathname);
+  const activePath = location.pathname;
 
   const links = [
     { path: '/browse', label: 'Browse' },
@@ -25,12 +24,11 @@ const Navbar = () => {
               <Link
                 key={link.path}
                 to={link.path}
-                className={`text-sm transition-colors ${
+                className={`text-sm transition-colors min-h-[44px] flex items-center px-2 ${
                   activePath === link.path
                     ? 'text-white font-medium'
                     : 'text-gray-300 hover:text-white'
                 } ${isLoading ? 'pointer-events-none opacity-50' : ''}`}
-                onClick={() => !isLoading && setActivePath(link.path)}
               >
                 {link.label}
               </Link>

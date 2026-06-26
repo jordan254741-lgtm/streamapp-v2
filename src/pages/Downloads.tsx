@@ -23,7 +23,7 @@ const Downloads = () => {
   };
 
   const handleWatch = (tmdbId: number) => {
-    navigate(`/watch/${tmdbId}`);
+    navigate(`/movie/${tmdbId}`);
   };
 
   if (isLoading) {
