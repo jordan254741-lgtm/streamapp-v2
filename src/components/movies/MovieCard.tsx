@@ -1,13 +1,22 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import type { Movie } from '@/types';
+import { downloadManager, useActiveDownloads } from '@/hooks/useDownloadManager';
+import { resolveMovieFile, downloadAndSave } from '@/lib/downloadService';
+import { DownloadIcon, CheckIcon, XIcon } from 'lucide-react';
+import type { Movie, QualityOption } from '@/types';
 
 interface MovieCardProps {
   movie: Movie;
   isLoading?: boolean;
   onClick?: () => void;
 }
+
+const formatBytes = (bytes: number): string => {
+  if (bytes >= 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
+  if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  return `${Math.max(0, Math.round(bytes / 1024))} KB`;
+};
 
 const MovieCardSkeleton: React.FC = () => (
   <div className="w-full group cursor-pointer">
@@ -18,6 +27,55 @@ const MovieCardSkeleton: React.FC = () => (
 );
 
 const MovieCard: React.FC<MovieCardProps> = ({ movie, isLoading, onClick }) => {
+  const [downloadQuality] = useState<QualityOption>('720p');
+  const tasks = useActiveDownloads();
+  const year = movie.release_date ? parseInt(movie.release_date.split('-')[0], 10) : undefined;
+
+  const activeTask = tasks.find(
+    (t) => t.title === movie.title && t.quality === downloadQuality && t.status !== 'error' && t.status !== 'cancelled',
+  );
+  const doneTask = tasks.find(
+    (t) => t.title === movie.title && t.quality === downloadQuality && t.status === 'done',
+  );
+
+  const handleDownload = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (activeTask) return;
+
+    const taskId = downloadManager.begin({ title: movie.title, quality: downloadQuality });
+    const controller = downloadManager.getController(taskId);
+
+    (async () => {
+      try {
+        const resolved = await resolveMovieFile({ title: movie.title, year, quality: downloadQuality });
+        if (!controller || controller.signal.aborted) return;
+
+        await downloadAndSave(resolved, movie.title, downloadQuality, {
+          signal: controller.signal,
+          onStage: (stage) => downloadManager.setStatus(taskId, stage),
+          onProgress: (receivedBytes, totalBytes) =>
+            downloadManager.setProgress(taskId, receivedBytes, totalBytes),
+        });
+
+        downloadManager.setStatus(taskId, 'done');
+      } catch (err) {
+        if (err instanceof DOMException && err.name === 'AbortError') {
+          downloadManager.cancel(taskId);
+          return;
+        }
+        downloadManager.fail(
+          taskId,
+          err instanceof Error ? err.message : 'Download failed.',
+        );
+      }
+    })();
+  };
+
+  const cancelDownload = (e: React.MouseEvent, taskId: string) => {
+    e.stopPropagation();
+    downloadManager.cancel(taskId);
+  };
+
   if (isLoading) {
     return <MovieCardSkeleton />;
   }
@@ -26,7 +84,7 @@ const MovieCard: React.FC<MovieCardProps> = ({ movie, isLoading, onClick }) => {
     ? `https://image.tmdb.org/t/p/w500${movie.poster_path}`
     : 'https://via.placeholder.com/500x750/111/333?text=No+Image';
 
-  const year = movie.release_date?.split('-')[0] ?? 'N/A';
+  const yearStr = movie.release_date?.split('-')[0] ?? 'N/A';
   const rating = movie.vote_average?.toFixed(1) ?? 'N/A';
 
   return (
@@ -54,12 +112,55 @@ const MovieCard: React.FC<MovieCardProps> = ({ movie, isLoading, onClick }) => {
             Popular
           </div>
         )}
+
+        {/* Download overlay on hover */}
+        <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+          {activeTask ? (
+            <div className="bg-black/80 backdrop-blur-md rounded-xl p-3 w-[90%] max-w-[160px]" onClick={(e) => e.stopPropagation()}>
+              <div className="flex items-center justify-between gap-2 mb-2">
+                <span className="text-[10px] text-neutral-300 truncate">
+                  {activeTask.status === 'downloading' && activeTask.totalBytes > 0
+                    ? `${Math.round((activeTask.receivedBytes / activeTask.totalBytes) * 100)}%`
+                    : activeTask.receivedBytes > 0
+                      ? formatBytes(activeTask.receivedBytes)
+                      : 'Downloading...'}
+                </span>
+                <button onClick={(e) => cancelDownload(e, activeTask.id)} className="text-neutral-500 hover:text-red-400 shrink-0">
+                  <XIcon className="h-3 w-3" />
+                </button>
+              </div>
+              <div className="h-1 rounded-full bg-white/[0.12] overflow-hidden">
+                {activeTask.totalBytes > 0 ? (
+                  <div
+                    className="h-full rounded-full bg-emerald-400 transition-all duration-300"
+                    style={{ width: `${(activeTask.receivedBytes / activeTask.totalBytes) * 100}%` }}
+                  />
+                ) : (
+                  <div className="h-full w-1/2 rounded-full bg-emerald-400/70 animate-pulse" />
+                )}
+              </div>
+            </div>
+          ) : doneTask ? (
+            <span className="flex items-center gap-1.5 bg-black/70 backdrop-blur-md text-emerald-400 text-xs font-medium px-3 py-1.5 rounded-lg">
+              <CheckIcon className="h-3.5 w-3.5" />
+              Saved
+            </span>
+          ) : (
+            <button
+              onClick={handleDownload}
+              className="bg-black/70 hover:bg-black/90 backdrop-blur-md text-white text-xs font-medium px-3 py-2 rounded-lg flex items-center gap-1.5 transition-all hover:scale-105 active:scale-95"
+            >
+              <DownloadIcon className="h-4 w-4" />
+              Download
+            </button>
+          )}
+        </div>
       </div>
       <CardContent className="p-2 px-0">
         <h3 className="text-sm font-semibold truncate text-white/90 group-hover:text-white transition-colors">
           {movie.title}
         </h3>
-        <p className="text-xs text-neutral-500 mt-0.5">{year}</p>
+        <p className="text-xs text-neutral-500 mt-0.5">{yearStr}</p>
       </CardContent>
     </Card>
   );
