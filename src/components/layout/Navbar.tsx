@@ -10,6 +10,7 @@ const Navbar = () => {
     { path: '/browse', label: 'Browse' },
     { path: '/requests', label: 'Requests' },
     { path: '/downloads', label: 'Downloads' },
+    { path: '/import', label: 'Import' },
   ];
 
   return (

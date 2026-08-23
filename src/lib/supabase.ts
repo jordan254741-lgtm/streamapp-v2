@@ -85,4 +85,10 @@ CREATE POLICY "Users can insert own downloads"
 
 CREATE POLICY "Users can delete own downloads"
   ON downloads FOR DELETE USING (auth.uid() = user_id);
+
+-- OPTIONAL (recommended): link requests to TMDB for posters + watch links.
+-- Run this in the Supabase SQL editor. The app works without it and
+-- gracefully falls back to plain-text submissions.
+ALTER TABLE requests ADD COLUMN IF NOT EXISTS tmdb_id INTEGER;
+ALTER TABLE requests ADD COLUMN IF NOT EXISTS poster_url TEXT;
 */

@@ -11,6 +11,8 @@ const Requests = lazy(() => import('./pages/Requests'));
 const Downloads = lazy(() => import('./pages/Downloads'));
 const Watch = lazy(() => import('./pages/Watch'));
 const NotFound = lazy(() => import('./pages/NotFound'));
+const LibraryImporter = lazy(() => import('./pages/LibraryImporter'));
+const PersonDetail = lazy(() => import('./pages/PersonDetail'));
 
 const ProtectedRoute = lazy(() => import('./components/ProtectedRoute'));
 const Navbar = lazy(() => import('./components/layout/Navbar'));
@@ -110,6 +112,32 @@ const router = createBrowserRouter([
           <ProtectedRoute>
             <Navbar />
             <Downloads />
+          </ProtectedRoute>
+        </ErrorBoundary>
+      </RouteSkeleton>
+    ),
+  },
+  {
+    path: '/import',
+    element: (
+      <RouteSkeleton>
+        <ErrorBoundary>
+          <ProtectedRoute>
+            <Navbar />
+            <LibraryImporter />
+          </ProtectedRoute>
+        </ErrorBoundary>
+      </RouteSkeleton>
+    ),
+  },
+  {
+    path: '/person/:id',
+    element: (
+      <RouteSkeleton>
+        <ErrorBoundary>
+          <ProtectedRoute>
+            <Navbar />
+            <PersonDetail />
           </ProtectedRoute>
         </ErrorBoundary>
       </RouteSkeleton>

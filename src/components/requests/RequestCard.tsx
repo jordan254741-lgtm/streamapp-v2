@@ -1,7 +1,8 @@
+import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ChevronUpIcon } from 'lucide-react';
+import { ChevronUpIcon, PlayIcon, FilmIcon } from 'lucide-react';
 import type { Request } from '@/types';
 
 const statusConfig: Record<Request['status'], { label: string; classes: string }> = {
@@ -34,34 +35,57 @@ const RequestCardSkeleton = () => (
 );
 
 const RequestCard = ({ request, hasVoted, onVote, isVoting }: RequestCardProps) => {
+  const navigate = useNavigate();
   const status = statusConfig[request.status];
 
   return (
-    <Card className="w-full">
+    <Card className="w-full hover:border-white/[0.12] transition-colors duration-200">
       <CardContent className="p-5">
-        <div className="flex items-start justify-between gap-3">
+        <div className="flex items-start gap-4">
+          {request.poster_url ? (
+            <img
+              src={request.poster_url}
+              alt=""
+              className="w-14 rounded-lg border border-white/[0.08] shrink-0"
+              loading="lazy"
+            />
+          ) : (
+            <div className="w-14 aspect-[2/3] rounded-lg bg-white/[0.04] border border-white/[0.06] flex items-center justify-center shrink-0">
+              <FilmIcon className="h-5 w-5 text-neutral-600" />
+            </div>
+          )}
+
           <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 flex-wrap">
-              <h3 className="text-white font-semibold text-base truncate">{request.title}</h3>
-              {request.release_year && (
-                <span className="text-neutral-500 text-sm whitespace-nowrap">({request.release_year})</span>
-              )}
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h3 className="text-white font-semibold text-base truncate">{request.title}</h3>
+                  {request.release_year && (
+                    <span className="text-neutral-500 text-sm whitespace-nowrap">({request.release_year})</span>
+                  )}
+                </div>
+                <div className="flex items-center gap-3 mt-1 text-sm text-neutral-500 flex-wrap">
+                  <span className="uppercase text-xs">{request.language}</span>
+                  {request.username && (
+                    <>
+                      <span className="text-neutral-600">·</span>
+                      <span className="text-xs">by {request.username}</span>
+                    </>
+                  )}
+                </div>
+              </div>
+
+              <span className={`text-xs font-medium px-2.5 py-1 rounded-full border shrink-0 ${status.classes}`}>
+                {status.label}
+              </span>
             </div>
-            <div className="flex items-center gap-3 mt-1 text-sm text-neutral-500">
-              <span className="uppercase text-xs">{request.language}</span>
-            </div>
+
             {request.notes && (
               <p className="text-neutral-500 text-sm mt-2 line-clamp-2">{request.notes}</p>
             )}
             <p className="text-xs text-neutral-600 mt-2">
               {new Date(request.created_at).toLocaleDateString()}
             </p>
-          </div>
-
-          <div className="flex flex-col items-center gap-2">
-            <span className={`text-xs font-medium px-2.5 py-1 rounded-full border ${status.classes}`}>
-              {status.label}
-            </span>
           </div>
         </div>
       </CardContent>
@@ -77,6 +101,18 @@ const RequestCard = ({ request, hasVoted, onVote, isVoting }: RequestCardProps) 
           <ChevronUpIcon className="h-4 w-4" />
           <span>{request.vote_count}</span>
         </Button>
+
+        {request.status === 'available' && request.tmdb_id && (
+          <Button
+            onClick={() => navigate(`/movie/${request.tmdb_id}`)}
+            variant="outline"
+            size="sm"
+            className="gap-1.5 text-emerald-400 border-emerald-500/20 hover:bg-emerald-500/10"
+          >
+            <PlayIcon className="h-4 w-4" />
+            Watch Now
+          </Button>
+        )}
       </CardFooter>
     </Card>
   );

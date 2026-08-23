@@ -54,6 +54,37 @@ export interface Credits {
   crew: CrewMember[];
 }
 
+export interface PersonDetails {
+  id: number;
+  name: string;
+  biography: string;
+  birthday: string | null;
+  deathday: string | null;
+  place_of_birth: string | null;
+  profile_path: string | null;
+  known_for_department: string;
+  homepage: string | null;
+  gender: number;
+  popularity: number;
+}
+
+export interface PersonMovieCredit {
+  id: number;
+  title: string;
+  poster_path: string | null;
+  vote_average: number;
+  vote_count: number;
+  release_date: string;
+  character?: string;
+  job?: string;
+  popularity: number;
+}
+
+export interface PersonMovieCredits {
+  cast: PersonMovieCredit[];
+  crew: PersonMovieCredit[];
+}
+
 export interface Request {
   id: string;
   user_id: string;
@@ -64,6 +95,9 @@ export interface Request {
   vote_count: number;
   status: 'pending' | 'sourcing' | 'available' | 'rejected';
   created_at: string;
+  tmdb_id?: number | null;
+  poster_url?: string | null;
+  username?: string | null;
 }
 
 export interface RequestVote {

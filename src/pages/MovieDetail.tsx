@@ -181,7 +181,7 @@ const MovieDetail = () => {
                   </span>
                 </Button>
               ) : showPlayButton ? (
-                <Button onClick={openPlayer} size="glow" className="font-semibold px-8">
+                <Button onClick={openPlayer} size="lg" className="font-semibold px-8">
                   <PlayIcon className="w-5 h-5 mr-2 shrink-0" />
                   {primarySource?.isFullMovie ? 'Watch Full Movie' : 'Watch'}
                   {playableSources.length > 1 && (
@@ -239,6 +239,7 @@ const MovieDetail = () => {
                 tmdbId={movie.id}
                 title={movie.title}
                 posterUrl={movie.poster_path ? `https://image.tmdb.org/t/p/w500${movie.poster_path}` : null}
+                year={movie.release_date ? parseInt(movie.release_date.split('-')[0], 10) : undefined}
               />
               <SubmitVideoDialog defaultTitle={movie.title} defaultTmdbId={movie.id} />
             </div>
@@ -313,13 +314,17 @@ const MovieDetail = () => {
             {cast.length > 0 ? (
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
                 {cast.slice(0, 12).map((person: CastMember) => (
-                  <div key={person.id} className="text-center group">
-                    <div className="w-16 h-16 rounded-full overflow-hidden mb-2 mx-auto bg-white/[0.05] ring-2 ring-white/[0.06] group-hover:ring-white/20 transition-all duration-300">
+                  <button
+                    key={person.id}
+                    onClick={() => navigate(`/person/${person.id}`)}
+                    className="text-center group cursor-pointer"
+                  >
+                    <div className="w-16 h-16 rounded-full overflow-hidden mb-2 mx-auto bg-white/[0.05] ring-2 ring-white/[0.06] group-hover:ring-white/30 transition-all duration-300">
                       {person.profile_path ? (
                         <img
                           src={`https://image.tmdb.org/t/p/w185${person.profile_path}`}
                           alt={person.name}
-                          className="w-full h-full object-cover"
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                         />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center">
@@ -327,9 +332,9 @@ const MovieDetail = () => {
                         </div>
                       )}
                     </div>
-                    <p className="text-sm font-medium truncate text-white/80">{person.name}</p>
+                    <p className="text-sm font-medium truncate text-white/80 group-hover:text-white">{person.name}</p>
                     <p className="text-xs text-neutral-500 truncate">{person.character}</p>
-                  </div>
+                  </button>
                 ))}
               </div>
             ) : (

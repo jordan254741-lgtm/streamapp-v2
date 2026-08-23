@@ -1,6 +1,6 @@
-import type { Movie, Genre, PaginatedResponse, Video, Credits } from '@/types';
+import type { Movie, Genre, PaginatedResponse, Video, Credits, PersonDetails, PersonMovieCredits } from '@/types';
 
-export type { Movie, Genre, PaginatedResponse, Video, Credits };
+export type { Movie, Genre, PaginatedResponse, Video, Credits, PersonDetails, PersonMovieCredits };
 
 const API_KEY = import.meta.env.VITE_TMDB_API_KEY;
 const BASE_URL = 'https://api.themoviedb.org/3';
@@ -103,4 +103,14 @@ export const getMovieCredits = (id: number): Promise<Credits> => {
 
 export const getSimilarMovies = (id: number): Promise<PaginatedResponse<Movie>> => {
   return fetchFromTmdb(`/movie/${id}/similar`, { page: '1' });
+};
+
+export const getPersonDetails = (id: number): Promise<PersonDetails> => {
+  return fetchWithCache(`person-${id}`, () => fetchFromTmdb(`/person/${id}`));
+};
+
+export const getPersonMovieCredits = (id: number): Promise<PersonMovieCredits> => {
+  return fetchWithCache(`person-movies-${id}`, () =>
+    fetchFromTmdb(`/person/${id}/movie_credits`),
+  );
 };

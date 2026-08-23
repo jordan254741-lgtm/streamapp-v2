@@ -7,6 +7,8 @@ interface SubmitRequestInput {
   release_year: number | null;
   language: string | null;
   notes: string | null;
+  tmdb_id?: number | null;
+  poster_url?: string | null;
 }
 
 interface UseRequestsOptions {
@@ -32,7 +34,11 @@ export const useRequests = ({ status }: UseRequestsOptions = {}) => {
 
       const { data, error } = await query;
       if (error) throw new Error(error.message);
-      return data as Request[];
+      return (data as Array<Record<string, unknown>>).map((row) => {
+        const { profiles, ...rest } = row;
+        const profile = profiles as { username?: string } | null | undefined;
+        return { ...rest, username: profile?.username ?? null } as Request;
+      });
     },
     staleTime: 1000 * 60 * 5,
   });
@@ -71,22 +77,28 @@ export const useSubmitRequest = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
 
-      const { data, error } = await supabase
-        .from('requests')
-        .insert({
-          user_id: user.id,
-          title: input.title,
-          release_year: input.release_year,
-          language: input.language,
-          notes: input.notes,
-          vote_count: 0,
-          status: 'pending',
-        })
-        .select()
-        .single();
+      const baseRow = {
+        user_id: user.id,
+        title: input.title,
+        release_year: input.release_year,
+        language: input.language,
+        notes: input.notes,
+        vote_count: 0,
+        status: 'pending',
+      };
 
-      if (error) throw new Error(error.message);
-      return data as Request;
+      // Try the enriched row first; fall back if optional columns are missing.
+      const extendedRow = input.tmdb_id
+        ? { ...baseRow, tmdb_id: input.tmdb_id, poster_url: input.poster_url ?? null }
+        : baseRow;
+
+      let result = await supabase.from('requests').insert(extendedRow).select().single();
+      if (result.error && input.tmdb_id) {
+        result = await supabase.from('requests').insert(baseRow).select().single();
+      }
+
+      if (result.error) throw new Error(result.error.message);
+      return result.data as Request;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['requests'] });
