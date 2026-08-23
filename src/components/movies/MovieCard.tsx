@@ -4,9 +4,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { downloadManager, useActiveDownloads } from '@/hooks/useDownloadManager';
 import { resolveMovieFile, downloadAndSave } from '@/lib/downloadService';
 import { DownloadIcon, CheckIcon, XIcon } from 'lucide-react';
-import type { Movie, QualityOption } from '@/types';
-
-interface MovieCardProps {
+import type { Movie, QualityOption } from '@/types';interface MovieCardProps {
   movie: Movie;
   isLoading?: boolean;
   onClick?: () => void;
@@ -111,6 +109,21 @@ const MovieCard: React.FC<MovieCardProps> = ({ movie, isLoading, onClick }) => {
           <div className="absolute top-2.5 left-2.5 bg-white/90 text-black text-[10px] font-bold px-2 py-0.5 rounded-md uppercase tracking-wider">
             Popular
           </div>
+        )}
+
+        {/* Always-visible download button (touch-friendly) */}
+        {!activeTask && (
+          <button
+            onClick={handleDownload}
+            aria-label={`Download ${movie.title}`}
+            className={`absolute bottom-2.5 right-2.5 h-8 w-8 rounded-full flex items-center justify-center backdrop-blur-md border transition-all active:scale-90 ${
+              doneTask
+                ? 'bg-emerald-500/80 border-emerald-300/40 text-white'
+                : 'bg-black/70 border-white/15 text-white/90 hover:bg-black/90 hover:text-white'
+            }`}
+          >
+            {doneTask ? <CheckIcon className="h-4 w-4" /> : <DownloadIcon className="h-4 w-4" />}
+          </button>
         )}
 
         {/* Download overlay on hover */}
